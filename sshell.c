@@ -15,27 +15,71 @@ struct Command {
     char *args[ARGS_MAX];
 };
 
+/*
 void output_redirect(char *cmdline) {
     int fd;
     char *meta_character = strchr(cmdline, '>');
-    // Parse the output file name from command line
-    if (meta_character) 
-    {
+    
+    // Parse the output file name from the command line
+    if (meta_character) {
         char *output_file = meta_character + 1;
         while (*output_file == ' ') {
             output_file++;
         }
 
+        char *token = strtok(cmdline, ">");
+
+        // Redirect stdout to the file
         fd = open(output_file, O_WRONLY | O_CREAT | O_TRUNC, 0644);
-        if (fd == -1) {
-            perror("Error opening file");
-            exit(EXIT_FAILURE);
-        }
+
         dup2(fd, STDOUT_FILENO);
         close(fd);
     }
 }
 
+void output_redirect(char *cmdline) {
+    int fd;
+    char *meta_character = strchr(cmdline, '>');
+
+    // Parse the output file name from the command line
+    if (meta_character) {
+        char *output_file = meta_character + 1;
+        while (*output_file == ' ') {
+            output_file++;
+        }
+
+        // Create a pipe to capture the command output
+        int pipe_fd[2];
+        pipe(pipe_fd);
+
+        pid_t child_pid = fork();
+
+        if (child_pid == 0) {  // Child process
+            close(pipe_fd[0]);  
+            dup2(pipe_fd[1], STDOUT_FILENO);  // Redirect standard output to the pipe
+            close(pipe_fd[1]);  
+
+            system(cmdline);
+            exit(EXIT_SUCCESS);
+
+        } else {  // Parent process
+            close(pipe_fd[1]); 
+            fd = open(output_file, O_WRONLY | O_CREAT | O_TRUNC, 0644);
+
+            // Read from the pipe and write to the file
+            char buffer[4096];
+            ssize_t bytesRead;
+
+            while ((bytesRead = read(pipe_fd[0], buffer, sizeof(buffer))) > 0) {
+                write(fd, buffer, bytesRead);
+            }
+
+            close(fd);
+            close(pipe_fd[0]);
+        }
+    }
+}
+*/
 void parse_command(char *cmdline, struct Command *command) {
     char *token;
     int arg_count = 0;
