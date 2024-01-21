@@ -4,6 +4,8 @@
 #include <unistd.h>
 #include <sys/types.h>
 #include <sys/wait.h>
+#include <fcntl.h>
+
 
 #define CMDLINE_MAX 512
 #define ARGS_MAX 32
@@ -13,9 +15,10 @@ struct Command {
     char *args[ARGS_MAX];
 };
 
-void parse_command(char *cmdline, struct Command *command) {
+void parse_command(char *cmd, struct Command *command) {
     char *token;
     int arg_count = 0;
+    char *cmdline = strdup(cmd);
 
     // Tokenize the command line
     token = strtok(cmdline, " ");
@@ -33,14 +36,44 @@ void parse_command(char *cmdline, struct Command *command) {
     command->args[arg_count] = NULL;
 }
 
+void execute_command(struct Command *command, int output_fd, char* cmd) {
+    pid_t pid = fork();
+    int status;
+
+    if (pid == -1) {
+        perror("fork");
+        exit(EXIT_FAILURE);
+    }
+
+    if (pid == 0) { // Child process
+        // Redirect standard output to the specified file
+        if (output_fd != STDOUT_FILENO) {
+            dup2(output_fd, STDOUT_FILENO);
+            close(output_fd);
+            execvp(command->program, command->args);
+        }
+
+        else{
+            execvp(command->program, command->args);
+        }
+        // If execvp fails, print an error and exit
+        perror("execvp");
+        exit(EXIT_FAILURE);
+    } 
+    
+    else { // Parent process
+        // Wait for the child process to complete
+        waitpid(pid, NULL, 0);
+        /* Print completion message to stderr */
+        fprintf(stderr, "+ completed '%s' [%d]\n", cmd, WEXITSTATUS(status));
+    }
+}
 
 int main(void) {
     char cmd[CMDLINE_MAX];
 
     while (1) {
         char *nl;
-        int status;
-        pid_t pid;
         struct Command command;
 
         /* Print prompt */
@@ -86,33 +119,33 @@ int main(void) {
             fprintf(stderr, "+ completed '%s' [%d]\n", cmd, 0);
         }
 
+         else if (strchr(cmd, '>')) {
+            // Output redirection is detected
+            char *command_line = strdup(cmd);
+            command_line = strtok(command_line, ">");
+            char *output_file= strtok(NULL, ">");
+            if (output_file != NULL && command_line != NULL) {
+                int output_fd = open(output_file, O_WRONLY | O_CREAT | O_TRUNC, 0666);
+                if (output_fd == -1) {
+                    perror("open");
+                    continue;
+                }
+                parse_command(command_line, &command);
+                execute_command(&command, output_fd, cmd);
+                close(output_fd);
+            } 
+            else {
+                fprintf(stderr, "Invalid syntax for output redirection\n");
+            }
+        }
+
         else {
             /* Parse the command line */
             parse_command(cmd, &command);
+            /* Execute the command */
+            execute_command(&command, STDOUT_FILENO, cmd);
 
-            /* Fork a child process */
-            pid = fork();
-
-            if (pid == -1) {
-                perror("fork");
-                exit(EXIT_FAILURE);
-            }
-
-            if (pid == 0) { /* Child process */
-                /* Execute the command in the child process */
-                execvp(command.program, command.args);
-
-                /* If execvp fails, print an error and exit */
-                perror("execvp");
-                exit(EXIT_FAILURE);
-            } else { /* Parent process */
-                /* Wait for the child process to complete */
-                waitpid(pid, &status, 0);
-
-                /* Print completion message to stderr */
-                fprintf(stderr, "+ completed '%s' [%d]\n", cmd, WEXITSTATUS(status));
-            }
-        }
+    }
     }
 
     return EXIT_SUCCESS;
