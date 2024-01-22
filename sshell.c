@@ -6,7 +6,6 @@
 #include <sys/wait.h>
 #include <fcntl.h>
 
-
 #define CMDLINE_MAX 512
 #define ARGS_MAX 32
 
@@ -86,8 +85,6 @@ void handle_pwd(char *cmd) {
     }
     fprintf(stderr, "+ completed '%s' [%d]\n", cmd, 0);
 }
-
-
 
 int main(void) {
     char cmd[CMDLINE_MAX];
