@@ -118,21 +118,38 @@ int main(void) {
             }
             fprintf(stderr, "+ completed '%s' [%d]\n", cmd, 0);
         }
-
-         else if (strchr(cmd, '>')) {
-            // Output redirection is detected
+        
+        else if (strchr(cmd, '>')) {
+            // Output or append redirection is detected
             char *command_line = strdup(cmd);
             command_line = strtok(command_line, ">");
-            char *output_file= strtok(NULL, ">");
+            char *output_file = strtok(NULL, ">");
+            int is_append = 0;  // Flag to check if it's append redirection
+
+            // Check if ">>" is present for append redirection
+            if (strstr(cmd, ">>")) {
+                is_append = 1;
+            }
+
             while (*output_file == ' ') {
                 output_file++;
             }
+
             if (output_file != NULL && command_line != NULL) {
-                int output_fd = open(output_file, O_WRONLY | O_CREAT | O_TRUNC, 0666);
+                int output_fd;
+                if (is_append) {
+                    // Append redirection
+                    output_fd = open(output_file, O_WRONLY | O_CREAT | O_APPEND, 0666);
+                } else {
+                    // Output redirection
+                    output_fd = open(output_file, O_WRONLY | O_CREAT | O_TRUNC, 0666);
+                }
+
                 if (output_fd == -1) {
                     perror("open");
                     continue;
                 }
+
                 parse_command(command_line, &command);
                 execute_command(&command, output_fd, cmd);
                 close(output_fd);
@@ -148,7 +165,7 @@ int main(void) {
             /* Execute the command */
             execute_command(&command, STDOUT_FILENO, cmd);
 
-    }
+        }
     }
 
     return EXIT_SUCCESS;
