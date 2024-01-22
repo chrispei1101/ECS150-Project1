@@ -134,6 +134,9 @@ int main(void) {
             char *command_line = strdup(cmd);
             command_line = strtok(command_line, ">");
             char *output_file= strtok(NULL, ">");
+            while (*output_file == ' ') {
+                output_file++;
+            }
             if (output_file != NULL && command_line != NULL) {
                 int output_fd = open(output_file, O_WRONLY | O_CREAT | O_TRUNC, 0666);
                 if (output_fd == -1) {
