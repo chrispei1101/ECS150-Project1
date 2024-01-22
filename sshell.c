@@ -58,8 +58,8 @@ void execute_command(struct Command *command, int output_fd, char* cmd) {
         // If execvp fails, print an error and exit
         perror("execvp");
         exit(EXIT_FAILURE);
-    } 
-    
+    }
+
     else { // Parent process
         // Wait for the child process to complete
         waitpid(pid, NULL, 0);
@@ -67,7 +67,6 @@ void execute_command(struct Command *command, int output_fd, char* cmd) {
         fprintf(stderr, "+ completed '%s' [%d]\n", cmd, WEXITSTATUS(status));
     }
 }
-
 
 void handle_cd(char *path, char *cmd) {
     if (chdir(path) == -1) {
@@ -84,6 +83,45 @@ void handle_pwd(char *cmd) {
         perror("getcwd");
     }
     fprintf(stderr, "+ completed '%s' [%d]\n", cmd, 0);
+}
+
+void output_redirection(char *cmd) {
+    char *command_line = strdup(cmd);
+    command_line = strtok(command_line, ">");
+    char *output_file = strtok(NULL, ">");
+    int is_append = 0;  // Flag to check if it's append redirection
+
+    // Check if ">>" is present for append redirection
+    if (strstr(cmd, ">>")) {
+        is_append = 1;
+    }
+
+    while (*output_file == ' ') {
+        output_file++;
+    }
+
+    if (output_file != NULL && command_line != NULL) {
+        int output_fd;
+        if (is_append) {
+            // Append redirection
+            output_fd = open(output_file, O_WRONLY | O_CREAT | O_APPEND, 0666);
+        } else {
+            // Output redirection
+            output_fd = open(output_file, O_WRONLY | O_CREAT | O_TRUNC, 0666);
+        }
+
+        if (output_fd == -1) {
+            perror("open");
+            return;  // Handle the error appropriately
+        }
+
+        struct Command command;
+        parse_command(command_line, &command);
+        execute_command(&command, output_fd, cmd);
+        close(output_fd);
+    } else {
+        fprintf(stderr, "Invalid syntax for output redirection\n");
+    }
 }
 
 int main(void) {
@@ -125,45 +163,10 @@ int main(void) {
         else if (!strcmp(cmd, "pwd")) { //pwd
             handle_pwd(cmd);
         }
-        
+
         else if (strchr(cmd, '>')) {
             // Output or append redirection is detected
-            char *command_line = strdup(cmd);
-            command_line = strtok(command_line, ">");
-            char *output_file = strtok(NULL, ">");
-            int is_append = 0;  // Flag to check if it's append redirection
-
-            // Check if ">>" is present for append redirection
-            if (strstr(cmd, ">>")) {
-                is_append = 1;
-            }
-
-            while (*output_file == ' ') {
-                output_file++;
-            }
-
-            if (output_file != NULL && command_line != NULL) {
-                int output_fd;
-                if (is_append) {
-                    // Append redirection
-                    output_fd = open(output_file, O_WRONLY | O_CREAT | O_APPEND, 0666);
-                } else {
-                    // Output redirection
-                    output_fd = open(output_file, O_WRONLY | O_CREAT | O_TRUNC, 0666);
-                }
-
-                if (output_fd == -1) {
-                    perror("open");
-                    continue;
-                }
-
-                parse_command(command_line, &command);
-                execute_command(&command, output_fd, cmd);
-                close(output_fd);
-            } 
-            else {
-                fprintf(stderr, "Invalid syntax for output redirection\n");
-            }
+            output_redirection(cmd);
         }
 
         else {
@@ -174,6 +177,5 @@ int main(void) {
 
         }
     }
-
     return EXIT_SUCCESS;
 }
