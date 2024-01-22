@@ -14,6 +14,7 @@ struct Command {
     char *args[ARGS_MAX];
 };
 
+
 void parse_command(char *cmd, struct Command *command) {
     char *token;
     int arg_count = 0;
@@ -35,7 +36,7 @@ void parse_command(char *cmd, struct Command *command) {
     command->args[arg_count] = NULL;
 }
 
-void execute_command(struct Command command, int output_fd, char* cmd) {
+void execute_command(struct Command command, int input_fd, int output_fd, char* cmd) {
     pid_t pid = fork();
     int status;
 
@@ -45,22 +46,32 @@ void execute_command(struct Command command, int output_fd, char* cmd) {
     }
 
     if (pid == 0) { // Child process
-        // Redirect standard output to the specified file
+        // Close read end of the pipe if input_fd is not STDIN_FILENO
+        if (input_fd != STDIN_FILENO) {
+            dup2(input_fd, STDIN_FILENO);
+            close(input_fd);
+        }
+
+        // Close write end of the pipe if output_fd is not STDOUT_FILENO
         if (output_fd != STDOUT_FILENO) {
             dup2(output_fd, STDOUT_FILENO);
             close(output_fd);
-            execvp(command.program, command.args);
         }
 
-        else{
-            execvp(command.program, command.args);
-        }
+        execvp(command.program, command.args);
+
         // If execvp fails, print an error and exit
         perror("execvp");
         exit(EXIT_FAILURE);
-    }
+    } else { // Parent process
+        // Close both ends of the pipe in the parent process
+        if (input_fd != STDIN_FILENO) {
+            close(input_fd);
+        }
+        if (output_fd != STDOUT_FILENO) {
+            close(output_fd);
+        }
 
-    else { // Parent process
         // Wait for the child process to complete
         waitpid(pid, &status, 0);
         /* Print completion message to stderr */
@@ -117,10 +128,44 @@ void output_redirection(char *cmd) {
 
         struct Command command;
         parse_command(command_line, &command);
-        execute_command(command, output_fd, cmd);
+        execute_command(command, STDIN_FILENO, output_fd, cmd);
         close(output_fd);
     } else {
         fprintf(stderr, "Invalid syntax for output redirection\n");
+    }
+}
+
+void execute_pipeline(char *cmd) {
+    char *command_line = strdup(cmd);
+    char *token;
+    int pipe_fd[2];
+    int input_fd = STDIN_FILENO;
+
+    // Tokenize the command line based on pipe
+    token = strtok(command_line, "|");
+    
+    while (token != NULL) {
+        // Create a pipe
+        fprintf(stdout, "%s", token);
+        if (pipe(pipe_fd) == -1) {
+            perror("pipe");
+            exit(EXIT_FAILURE);
+        }
+
+        struct Command command;
+        parse_command(token, &command);
+
+        // Execute the command with the appropriate input and output
+        execute_command(command, input_fd, pipe_fd[1], token);
+
+        // Close write end of the pipe
+        close(pipe_fd[1]);
+
+        // Set input_fd for the next iteration to the read end of the pipe
+        input_fd = pipe_fd[0];
+
+        // Move to the next token
+        token = strtok(NULL, "|");
     }
 }
 
@@ -169,12 +214,16 @@ int main(void) {
             output_redirection(cmd);
         }
 
+        else if (strchr(cmd, '|')) {
+            // Pipeline is detected
+            execute_pipeline(cmd);
+        }
+
         else {
             /* Parse the command line */
             parse_command(cmd, &command);
             /* Execute the command */
-            execute_command(command, STDOUT_FILENO, cmd);
-
+            execute_command(command, STDIN_FILENO, STDOUT_FILENO, cmd);
         }
     }
     return EXIT_SUCCESS;
