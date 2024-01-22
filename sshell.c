@@ -69,6 +69,26 @@ void execute_command(struct Command *command, int output_fd, char* cmd) {
     }
 }
 
+
+void handle_cd(char *path, char *cmd) {
+    if (chdir(path) == -1) {
+        perror("chdir");
+    }
+    fprintf(stderr, "+ completed '%s' [%d]\n", cmd, 0);
+}
+
+void handle_pwd(char *cmd) {
+    char cwd[128];
+    if (getcwd(cwd, sizeof(cwd)) != NULL) {
+        fprintf(stdout, "%s\n", cwd);
+    } else {
+        perror("getcwd");
+    }
+    fprintf(stderr, "+ completed '%s' [%d]\n", cmd, 0);
+}
+
+
+
 int main(void) {
     char cmd[CMDLINE_MAX];
 
@@ -102,21 +122,11 @@ int main(void) {
 
         else if (!strncmp(cmd, "cd ", 3)) { //cd
             char *path = cmd + 3; // Extract path after "cd "
-            if (chdir(path) == -1) {
-                perror("chdir");
-            }
-            fprintf(stderr, "+ completed '%s' [%d]\n", cmd, 0);
+            handle_cd(path, cmd);
         }
 
         else if (!strcmp(cmd, "pwd")) { //pwd
-            char cwd[128];
-            if (getcwd(cwd, sizeof(cwd)) != NULL) {
-                fprintf(stdout, "%s\n", cwd);
-            } 
-            else {
-                perror("getcwd");
-            }
-            fprintf(stderr, "+ completed '%s' [%d]\n", cmd, 0);
+            handle_pwd(cmd);
         }
         
         else if (strchr(cmd, '>')) {
