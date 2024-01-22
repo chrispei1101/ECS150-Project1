@@ -62,7 +62,7 @@ void execute_command(struct Command *command, int output_fd, char* cmd) {
 
     else { // Parent process
         // Wait for the child process to complete
-        waitpid(pid, NULL, 0);
+        waitpid(pid, &status, 0);
         /* Print completion message to stderr */
         fprintf(stderr, "+ completed '%s' [%d]\n", cmd, WEXITSTATUS(status));
     }
