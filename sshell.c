@@ -35,7 +35,7 @@ void parse_command(char *cmd, struct Command *command) {
     command->args[arg_count] = NULL;
 }
 
-void execute_command(struct Command *command, int output_fd, char* cmd) {
+void execute_command(struct Command command, int output_fd, char* cmd) {
     pid_t pid = fork();
     int status;
 
@@ -49,11 +49,11 @@ void execute_command(struct Command *command, int output_fd, char* cmd) {
         if (output_fd != STDOUT_FILENO) {
             dup2(output_fd, STDOUT_FILENO);
             close(output_fd);
-            execvp(command->program, command->args);
+            execvp(command.program, command.args);
         }
 
         else{
-            execvp(command->program, command->args);
+            execvp(command.program, command.args);
         }
         // If execvp fails, print an error and exit
         perror("execvp");
@@ -117,7 +117,7 @@ void output_redirection(char *cmd) {
 
         struct Command command;
         parse_command(command_line, &command);
-        execute_command(&command, output_fd, cmd);
+        execute_command(command, output_fd, cmd);
         close(output_fd);
     } else {
         fprintf(stderr, "Invalid syntax for output redirection\n");
@@ -173,7 +173,7 @@ int main(void) {
             /* Parse the command line */
             parse_command(cmd, &command);
             /* Execute the command */
-            execute_command(&command, STDOUT_FILENO, cmd);
+            execute_command(command, STDOUT_FILENO, cmd);
 
         }
     }
