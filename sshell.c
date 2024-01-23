@@ -232,13 +232,8 @@ void parse_pipe(char *cmdline) {
         parse_command(token[i], &commands[i]);
 
     }
-
-    fprintf(stdout,"%s", token[2]);
     execute_pipeline(commands, cmdline);
-
 }
-
-
 
 int main(void) {
     char cmd[CMDLINE_MAX];
