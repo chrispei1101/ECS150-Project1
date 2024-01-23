@@ -27,6 +27,7 @@ void parse_command(char *cmd, struct Command *command) {
     // Tokenize the command line
     token = strtok(cmdline, " ");
     command->program = token;
+    command->args[0] = token;
 
     // Parse arguments
     while (token != NULL && arg_count < ARGS_MAX - 1) {
@@ -138,76 +139,106 @@ void output_redirection(char *cmd) {
         fprintf(stderr, "Invalid syntax for output redirection\n");
     }
 }
-/*
-void execute_pipeline(char *cmd) {
-    char *command_line = strdup(cmd);
-    char *token;
-    int pipe_fd[2];
-    int input_fd = STDIN_FILENO;
 
-    // Tokenize the command line based on pipe
-    token = strtok(command_line, "|");
+
+void execute_pipeline(struct Command commands[], char *cmd) {
+    int num_commands = 1;
+    char* cmd_copy = strdup(cmd);
+    while (*cmd_copy != '\0') {
+        if (*cmd_copy == '|') {
+            num_commands++;
+        }
+        cmd_copy++;
+    }
+    int status[num_commands];
+    int pipes[num_commands-1][2]; // One less pipe than commands
+    pid_t pids[num_commands];
     
-    while (token != NULL) {
-        // Create a pipe
-        fprintf(stdout, "%s", token);
-        if (pipe(pipe_fd) == -1) {
+    // Create pipes
+    for (int i = 0; i < num_commands - 1; i++) {
+        if (pipe(pipes[i]) == -1) {
             perror("pipe");
             exit(EXIT_FAILURE);
         }
-
-        struct Command command;
-        parse_command(token, &command);
-
-        // Execute the command with the appropriate input and output
-        execute_command(command, input_fd, pipe_fd[1], token);
-
-        // Close write end of the pipe
-        close(pipe_fd[1]);
-
-        // Set input_fd for the next iteration to the read end of the pipe
-        input_fd = pipe_fd[0];
-
-        // Move to the next token
-        token = strtok(NULL, "|");
-    }
-}
-*/
-void parse_pipe(char *cmdline, struct Pipeline *pipe) {
-    char *token;
-    int cmd_count = 0;
-
-    // Tokenize the command line using "|"
-    token = strtok(cmdline, "|");
-    while (token != NULL && cmd_count < PIPES_MAX + 1) {
-        parse_command(token, &pipe->commands[cmd_count]);
-        token = strtok(NULL, "|");
-        cmd_count++;
     }
 
-    // Null-terminate the last command
-    pipe->commands[cmd_count].program = NULL;
-    pipe->commands[cmd_count].args[0] = NULL;
-}
-
-void execute_pipeline(struct Pipeline *pipe_in, char *cmd) {
-    int input_fd = STDIN_FILENO;
-
-    for (int i = 0; pipe_in->commands[i].program != NULL; i++) {
-        int pipe_fd[2];
-
-        if (pipe(pipe_fd) == -1) {
-            perror("pipe");
+    // Execute the command
+    for (int i = 0; i < num_commands; i++) {
+        // Create child processes
+        if ((pids[i] = fork()) == -1) {
+            perror("fork");
             exit(EXIT_FAILURE);
         }
 
-        execute_command(pipe_in->commands[i], input_fd, pipe_fd[1], cmd);
+        if (pids[i] == 0) { // Child process
+            // Connect input to the previous pipe (if not the first command)
+            if (i > 0) {
+                dup2(pipes[i - 1][0], STDIN_FILENO);
+                close(pipes[i - 1][0]);
+                close(pipes[i - 1][1]);
+                execvp(commands[i].program, commands[i].args);
+                perror("execvp");
+                exit(EXIT_FAILURE);
+            }
 
-        close(pipe_fd[1]); // Close write end of the pipe
-
-        input_fd = pipe_fd[0]; // Set input for the next command
+            // Connect output to the next pipe (if not the last command)
+            if (i < num_commands - 1) {
+                dup2(pipes[i][1], STDOUT_FILENO);
+                close(pipes[i][0]);
+                close(pipes[i][1]);
+                execvp(commands[i].program, commands[i].args);
+                perror("execvp");
+                exit(EXIT_FAILURE);
+            }
+        }
     }
+
+    // Close all pipes in the parent
+    for (int i = 0; i < num_commands - 1; i++) {
+        close(pipes[i][0]);
+        close(pipes[i][1]);
+    }
+
+    // Wait for all child processes to complete
+    for (int i = 0; i < num_commands; i++) {
+        waitpid(pids[i], &status[i], 0);
+    }
+
+    fprintf(stderr, "+ completed '%s' ", cmd);
+    for (int i = 0; i < num_commands; i++) {
+       fprintf(stderr, "[%d]", status[i]);
+    }
+    fprintf(stderr,"\n");
 }
+
+void parse_pipe(char *cmdline) {
+    int num_commands = 1;
+    char* cmd_copy = strdup(cmdline);
+    while (*cmd_copy != '\0') {
+        if (*cmd_copy == '|') {
+            num_commands++;
+        }
+        cmd_copy++;
+    }
+    struct Command *commands = (struct Command*)malloc(num_commands * sizeof(struct Command));
+    cmd_copy = strdup(cmdline);
+    char *token[num_commands];
+    token[0]= strtok(cmd_copy, "|");
+    for(int i = 1; i<num_commands; i++) {
+        token[i] = strtok(NULL, "|");
+    }
+    
+    for(int i = 0; i<num_commands; i++) {
+        parse_command(token[i], &commands[i]);
+
+    }
+
+    fprintf(stdout,"%s", token[2]);
+    execute_pipeline(commands, cmdline);
+
+}
+
+
 
 int main(void) {
     char cmd[CMDLINE_MAX];
@@ -215,7 +246,7 @@ int main(void) {
     while (1) {
         char *nl;
         struct Command command;
-        struct Pipeline pipe;
+        //struct Pipeline pipe;
 
         /* Print prompt */
         fprintf(stderr, "sshell$ ");
@@ -259,8 +290,8 @@ int main(void) {
         else if (strchr(cmd, '|')) {
             // Pipeline is detected
             //execute_pipeline(cmd);
-            parse_pipe(cmd, &pipe);
-            execute_pipeline(&pipe, cmd);
+            parse_pipe(cmd);
+            
         }
 
         else {
