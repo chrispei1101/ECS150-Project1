@@ -139,16 +139,10 @@ void output_redirection(char *cmd) {
         fprintf(stderr, "Invalid syntax for output redirection\n");
     }
 }
-/*
-void execute_pipeline(struct Command commands[], char *cmd) {
-    int num_commands = 1;
-    char* cmd_copy = strdup(cmd);
-    while (*cmd_copy != '\0') {
-        if (*cmd_copy == '|') {
-            num_commands++;
-        }
-        cmd_copy++;
-    }
+
+
+void execute_pipeline(struct Command commands[], char *cmd, int num_commands) {
+
     int status[num_commands];
     int pipes[num_commands-1][2]; // One less pipe than commands
     pid_t pids[num_commands];
@@ -164,96 +158,12 @@ void execute_pipeline(struct Command commands[], char *cmd) {
     // Execute the command
     for (int i = 0; i < num_commands; i++) {
         // Create child processes
-        if ((pids[i] = fork()) == -1) {
-            perror("fork");
-            exit(EXIT_FAILURE);
-        }
-
-        if (pids[i] == 0) { // Child process
-            // Connect input to the previous pipe (if not the first command)
-            if (i == 0) {
-                dup2(pipes[i][0], STDIN_FILENO);
-            }
-            else {
-                dup2(pipes[i-1][0], STDIN_FILENO);
-            }
-
-            // Connect output to the current pipe (if not the last command)
-            if (i != num_commands - 1) {
-                dup2(pipes[i][1], STDOUT_FILENO);
-            }
-
-            // Close all pipes in the child
-            for (int j = 0; j < num_commands - 1; j++) {
-                close(pipes[j][0]);
-                close(pipes[j][1]);
-            }
-
-            // Execute the command
-            execvp(commands[i].program, commands[i].args);
-            perror("execvp");
-            exit(EXIT_FAILURE);
-        }
-    }
-
-    // Close all pipes in the parent
-    for (int i = 0; i < num_commands - 1; i++) {
-        close(pipes[i][0]);
-        close(pipes[i][1]);
-    }
-
-    // Wait for all child processes to complete
-    for (int i = 0; i < num_commands; i++) {
-        waitpid(pids[i], &status[i], 0);
-    }
-
-    fprintf(stderr, "+ completed '%s' ", cmd);
-    for (int i = 0; i < num_commands; i++) {
-        int exit_code = WEXITSTATUS(status[i]);
-        fprintf(stderr, "[%d]", exit_code);
-    }
-    fprintf(stderr, "\n");
-}
-*/
-
-void execute_pipeline(struct Command commands[], char *cmd) {
-    int num_commands = 1;
-    char* cmd_copy = strdup(cmd);
-    while (*cmd_copy != '\0') {
-        if (*cmd_copy == '|') {
-            num_commands++;
-        }
-        cmd_copy++;
-    }
-    int status[num_commands];
-    int pipes[num_commands-1][2]; // One less pipe than commands
-    pid_t pids[num_commands];
-    
-    // Create pipes
-    for (int i = 0; i < num_commands - 1; i++) {
-        if (pipe(pipes[i]) == -1) {
-            perror("pipe");
-            exit(EXIT_FAILURE);
-        }
-    }
-
-    // Execute the command
-    for (int i = 0; i < num_commands; i++) {
-        // Create child processes
-        if ((pids[i] = fork()) == -1) {
-            perror("fork");
-            exit(EXIT_FAILURE);
-        }
-
-        if (pids[i] == 0) { // Child process
+        if (!(pids[i] = fork())) { // Child process
             // Connect input to the previous pipe (if not the first command)
             if (i > 0) {
                 dup2(pipes[i - 1][0], STDIN_FILENO);
                 close(pipes[i - 1][0]);
                 close(pipes[i - 1][1]);
-                execvp(commands[i].program, commands[i].args);
-                perror("execvp");
-                exit(EXIT_FAILURE);
             }
 
             // Connect output to the next pipe (if not the last command)
@@ -261,10 +171,11 @@ void execute_pipeline(struct Command commands[], char *cmd) {
                 dup2(pipes[i][1], STDOUT_FILENO);
                 close(pipes[i][0]);
                 close(pipes[i][1]);
-                execvp(commands[i].program, commands[i].args);
-                perror("execvp");
-                exit(EXIT_FAILURE);
             }
+
+        execvp(commands[i].program, commands[i].args);
+        perror("execvp");
+        exit(EXIT_FAILURE);
         }
     }
 
@@ -308,8 +219,12 @@ void parse_pipe(char *cmdline) {
         parse_command(token[i], &commands[i]);
 
     }
-    execute_pipeline(commands, cmdline);
+
+    execute_pipeline(commands, cmdline, num_commands);
+
 }
+
+
 
 int main(void) {
     char cmd[CMDLINE_MAX];
