@@ -8,12 +8,16 @@
 
 #define CMDLINE_MAX 512
 #define ARGS_MAX 32
+#define PIPES_MAX 3
 
 struct Command {
     char *program;
     char *args[ARGS_MAX];
 };
 
+struct Pipeline {
+    struct Command commands[PIPES_MAX + 1];
+};
 
 void parse_command(char *cmd, struct Command *command) {
     char *token;
@@ -134,7 +138,7 @@ void output_redirection(char *cmd) {
         fprintf(stderr, "Invalid syntax for output redirection\n");
     }
 }
-
+/*
 void execute_pipeline(char *cmd) {
     char *command_line = strdup(cmd);
     char *token;
@@ -168,6 +172,42 @@ void execute_pipeline(char *cmd) {
         token = strtok(NULL, "|");
     }
 }
+*/
+void parse_pipe(char *cmdline, struct Pipeline *pipe) {
+    char *token;
+    int cmd_count = 0;
+
+    // Tokenize the command line using "|"
+    token = strtok(cmdline, "|");
+    while (token != NULL && cmd_count < PIPES_MAX + 1) {
+        parse_command(token, &pipe->commands[cmd_count]);
+        token = strtok(NULL, "|");
+        cmd_count++;
+    }
+
+    // Null-terminate the last command
+    pipe->commands[cmd_count].program = NULL;
+    pipe->commands[cmd_count].args[0] = NULL;
+}
+
+void execute_pipeline(struct Pipeline *pipe_in, char *cmd) {
+    int input_fd = STDIN_FILENO;
+
+    for (int i = 0; pipe_in->commands[i].program != NULL; i++) {
+        int pipe_fd[2];
+
+        if (pipe(pipe_fd) == -1) {
+            perror("pipe");
+            exit(EXIT_FAILURE);
+        }
+
+        execute_command(pipe_in->commands[i], input_fd, pipe_fd[1], cmd);
+
+        close(pipe_fd[1]); // Close write end of the pipe
+
+        input_fd = pipe_fd[0]; // Set input for the next command
+    }
+}
 
 int main(void) {
     char cmd[CMDLINE_MAX];
@@ -175,6 +215,7 @@ int main(void) {
     while (1) {
         char *nl;
         struct Command command;
+        struct Pipeline pipe;
 
         /* Print prompt */
         fprintf(stderr, "sshell$ ");
@@ -197,6 +238,7 @@ int main(void) {
         /* Builtin commands */
         if (!strcmp(cmd, "exit")) { //exit
             fprintf(stderr, "Bye...\n");
+            fprintf(stderr, "+ completed '%s' [%d]\n", cmd, 0);
             break;
         }
 
@@ -216,7 +258,9 @@ int main(void) {
 
         else if (strchr(cmd, '|')) {
             // Pipeline is detected
-            execute_pipeline(cmd);
+            //execute_pipeline(cmd);
+            parse_pipe(cmd, &pipe);
+            execute_pipeline(&pipe, cmd);
         }
 
         else {
