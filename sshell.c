@@ -206,7 +206,8 @@ void execute_pipeline(struct Command commands[], char *cmd) {
 
     fprintf(stderr, "+ completed '%s' ", cmd);
     for (int i = 0; i < num_commands; i++) {
-       fprintf(stderr, "[%d]", status[i]);
+        int exit_code = WEXITSTATUS(status[i]);
+        fprintf(stderr, "[%d]", exit_code);
     }
     fprintf(stderr,"\n");
 }
