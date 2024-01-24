@@ -1,12 +1,12 @@
+#include <dirent.h>
+#include <fcntl.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#include <unistd.h>
+#include <sys/stat.h>
 #include <sys/types.h>
 #include <sys/wait.h>
-#include <fcntl.h>
-#include <dirent.h>
-#include <sys/stat.h>
+#include <unistd.h>
 
 #define CMDLINE_MAX 512
 #define ARGS_MAX 32
@@ -136,7 +136,7 @@ void output_redirection(char *cmd) {
 
         if (output_fd == -1) {
             perror("open");
-            return;  // Handle the error appropriately
+            return;
         }
 
         struct Command command;
@@ -222,9 +222,9 @@ void execute_pipeline(struct Command commands[], char *cmd) {
     fprintf(stderr, "\n");
 }
 
-void parse_pipe(char *cmdline) {
+void parse_pipe(char *cmd) {
     int num_commands = 1;
-    char* cmd_copy = strdup(cmdline);
+    char* cmd_copy = strdup(cmd);
     while (*cmd_copy != '\0') {
         if (*cmd_copy == '|') {
             num_commands++;
@@ -232,7 +232,7 @@ void parse_pipe(char *cmdline) {
         cmd_copy++;
     }
     struct Command *commands = (struct Command*)malloc(num_commands * sizeof(struct Command));
-    cmd_copy = strdup(cmdline);
+    cmd_copy = strdup(cmd);
     char *token[num_commands];
     token[0]= strtok(cmd_copy, "|");
     for(int i = 1; i<num_commands; i++) {
@@ -243,7 +243,7 @@ void parse_pipe(char *cmdline) {
         parse_command(token[i], &commands[i]);
 
     }
-    execute_pipeline(commands, cmdline);
+    execute_pipeline(commands, cmd);
 }
 
 void sls() {
@@ -280,6 +280,17 @@ void sls() {
     closedir(dir);
 }
 
+int check_error(char *cmd) {
+    while (*cmd == ' ') {
+        cmd++;
+    }
+
+    if (cmd[0] == '>' || cmd[0] == '|') {
+        return 1;
+    } 
+    return 0;
+}
+
 int main(void) {
     char cmd[CMDLINE_MAX];
 
@@ -304,6 +315,11 @@ int main(void) {
         nl = strchr(cmd, '\n');
         if (nl)
             *nl = '\0';
+
+        if (check_error(cmd) == 1) {
+            printf("Error: missing command\n");
+            continue;
+        }
 
         /* Builtin commands */
         if (!strcmp(cmd, "exit")) { //exit
