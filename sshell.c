@@ -171,16 +171,15 @@ void execute_pipeline(struct Command commands[], char *cmd) {
 
         if (pids[i] == 0) { // Child process
             // Connect input to the previous pipe (if not the first command)
-            if (i == 0) {
-                dup2(pipes[i][0], STDIN_FILENO);
-            }
-            else {
+           if (i > 0) {
                 dup2(pipes[i-1][0], STDIN_FILENO);
-            }
+                close(pipes[i-1][0]);
+           }
 
             // Connect output to the current pipe (if not the last command)
             if (i != num_commands - 1) {
                 dup2(pipes[i][1], STDOUT_FILENO);
+                close(pipes[i][1]);
             }
 
             // Close all pipes in the child
@@ -188,7 +187,7 @@ void execute_pipeline(struct Command commands[], char *cmd) {
                 close(pipes[j][0]);
                 close(pipes[j][1]);
             }
-
+            
             // Execute the command
             execvp(commands[i].program, commands[i].args);
             perror("execvp");
