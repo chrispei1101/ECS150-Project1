@@ -21,40 +21,6 @@ struct Pipeline {
     struct Command commands[PIPES_MAX + 1];
 };
 
-void sls() {
-    DIR *dir;
-    struct dirent *entry;
-    struct stat file_stat;
-
-    // Open the current directory
-    dir = opendir(".");
-    if (dir == NULL) {
-        perror("Error: cannot open directory");
-        return;
-    }
-
-    // Read and print directory entries
-    while ((entry = readdir(dir)) != NULL) {
-        // Exclude entries starting with a dot
-        if (entry->d_name[0] == '.') {
-            continue;
-        }
-
-        if (stat(entry->d_name, &file_stat) == -1) {
-            perror("Error: cannot get file information");
-            closedir(dir);
-            return;
-        }
-
-        // Print the entry name and size
-        printf("%s (%ld bytes)\n", entry->d_name, (long)file_stat.st_size);
-    }
-    fprintf(stderr, "+ completed 'sls' [%d]\n", 0);
-
-    // Close directory
-    closedir(dir);
-}
-
 void parse_command(char *cmd, struct Command *command) {
     char *token;
     int arg_count = 0;
@@ -135,6 +101,12 @@ void handle_pwd(char *cmd) {
         perror("getcwd");
     }
     fprintf(stderr, "+ completed '%s' [%d]\n", cmd, 0);
+}
+
+void handle_exit(char *cmd) {
+    fprintf(stderr, "Bye...\n");
+    fprintf(stderr, "+ completed '%s' [%d]\n", cmd, 0);
+    exit(EXIT_SUCCESS);
 }
 
 void output_redirection(char *cmd) {
@@ -274,13 +246,46 @@ void parse_pipe(char *cmdline) {
     execute_pipeline(commands, cmdline);
 }
 
+void sls() {
+    DIR *dir;
+    struct dirent *entry;
+    struct stat file_stat;
+
+    // Open the current directory
+    dir = opendir(".");
+    if (dir == NULL) {
+        perror("Error: cannot open directory");
+        return;
+    }
+
+    // Read and print directory entries
+    while ((entry = readdir(dir)) != NULL) {
+        // Exclude entries starting with a dot
+        if (entry->d_name[0] == '.') {
+            continue;
+        }
+
+        if (stat(entry->d_name, &file_stat) == -1) {
+            perror("Error: cannot get file information");
+            closedir(dir);
+            return;
+        }
+
+        // Print the entry name and size
+        printf("%s (%ld bytes)\n", entry->d_name, (long)file_stat.st_size);
+    }
+    fprintf(stderr, "+ completed 'sls' [%d]\n", 0);
+
+    // Close directory
+    closedir(dir);
+}
+
 int main(void) {
     char cmd[CMDLINE_MAX];
 
     while (1) {
         char *nl;
         struct Command command;
-        //struct Pipeline pipe;
 
         /* Print prompt */
         fprintf(stderr, "sshell$ ");
@@ -302,9 +307,7 @@ int main(void) {
 
         /* Builtin commands */
         if (!strcmp(cmd, "exit")) { //exit
-            fprintf(stderr, "Bye...\n");
-            fprintf(stderr, "+ completed '%s' [%d]\n", cmd, 0);
-            break;
+            handle_exit(cmd);
         }
 
         else if (!strncmp(cmd, "cd ", 3)) { //cd
@@ -316,20 +319,15 @@ int main(void) {
             handle_pwd(cmd);
         }
 
-        else if (strchr(cmd, '>')) {
-            // Output or append redirection is detected
+        else if (strchr(cmd, '>')) {// output redirect
             output_redirection(cmd);
         }
 
-        else if (strchr(cmd, '|')) {
-            // Pipeline is detected
-            //execute_pipeline(cmd);
+        else if (strchr(cmd, '|')) { // pipe
             parse_pipe(cmd);
-            
         }
 
-        else if (strcmp(cmd, "sls") == 0)
-        {
+        else if (strcmp(cmd, "sls") == 0) { // sls
             sls();
         }
 
