@@ -251,7 +251,7 @@ void sls() {
     struct dirent *entry;
     struct stat file_stat;
 
-    // Open the current directory
+    // Open current directory
     dir = opendir(".");
     if (dir == NULL) {
         perror("Error: cannot open directory");
@@ -288,8 +288,8 @@ int main(void) {
         struct Command command;
 
         /* Print prompt */
-        fprintf(stderr, "sshell$ ");
-        fflush(stderr);
+        printf("sshell@ucd$ ");
+        fflush(stdout);
 
         /* Get command line */
         fgets(cmd, CMDLINE_MAX, stdin);
