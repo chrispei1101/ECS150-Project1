@@ -5,6 +5,8 @@
 #include <sys/types.h>
 #include <sys/wait.h>
 #include <fcntl.h>
+#include <dirent.h>
+#include <sys/stat.h>
 
 #define CMDLINE_MAX 512
 #define ARGS_MAX 32
@@ -18,6 +20,40 @@ struct Command {
 struct Pipeline {
     struct Command commands[PIPES_MAX + 1];
 };
+
+void sls() {
+    DIR *dir;
+    struct dirent *entry;
+    struct stat file_stat;
+
+    // Open the current directory
+    dir = opendir(".");
+    if (dir == NULL) {
+        perror("Error: cannot open directory");
+        return;
+    }
+
+    // Read and print directory entries
+    while ((entry = readdir(dir)) != NULL) {
+        // Exclude entries starting with a dot
+        if (entry->d_name[0] == '.') {
+            continue;
+        }
+
+        if (stat(entry->d_name, &file_stat) == -1) {
+            perror("Error: cannot get file information");
+            closedir(dir);
+            return;
+        }
+
+        // Print the entry name and size
+        printf("%s (%ld bytes)\n", entry->d_name, (long)file_stat.st_size);
+    }
+    fprintf(stderr, "+ completed 'sls' [%d]\n", 0);
+
+    // Close directory
+    closedir(dir);
+}
 
 void parse_command(char *cmd, struct Command *command) {
     char *token;
@@ -290,6 +326,11 @@ int main(void) {
             //execute_pipeline(cmd);
             parse_pipe(cmd);
             
+        }
+
+        else if (strcmp(cmd, "sls") == 0)
+        {
+            sls();
         }
 
         else {
