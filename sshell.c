@@ -1,3 +1,4 @@
+#include <ctype.h>
 #include <dirent.h>
 #include <fcntl.h>
 #include <stdio.h>
@@ -281,13 +282,27 @@ void sls() {
 }
 
 int check_error(char *cmd) {
+    size_t len = strlen(cmd);
+    while (len > 0 && isspace(cmd[len - 1])) {
+        cmd[--len] = '\0';
+    }
     while (*cmd == ' ') {
         cmd++;
     }
 
+    // Check if the command starts with '|' or '>'
     if (cmd[0] == '>' || cmd[0] == '|') {
         return 1;
     } 
+    // Check if the command ends with '|'
+    if (len > 0 && cmd[len - 1] == '|' ) {
+        return 1;
+    }
+    // Check if the command ends with '>'
+    if (len > 0 && cmd[len - 1] == '>' ) {
+        return 2;
+    }
+
     return 0;
 }
 
@@ -316,8 +331,12 @@ int main(void) {
         if (nl)
             *nl = '\0';
 
+        /* Checking for error */
         if (check_error(cmd) == 1) {
-            printf("Error: missing command\n");
+            fprintf(stderr, "Error: missing command\n");
+            continue;
+        } else if (check_error(cmd) == 2) {
+            fprintf(stderr, "Error: no output file\n");
             continue;
         }
 
