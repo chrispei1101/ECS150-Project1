@@ -1,13 +1,13 @@
-#include <ctype.h>
-#include <dirent.h>
-#include <fcntl.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#include <sys/stat.h>
+#include <unistd.h>
 #include <sys/types.h>
 #include <sys/wait.h>
-#include <unistd.h>
+#include <fcntl.h>
+#include <dirent.h>
+#include <sys/stat.h>
+#include <stdbool.h>
 
 #define CMDLINE_MAX 512
 #define ARGS_MAX 32
@@ -138,7 +138,7 @@ void output_redirection(char *cmd) {
 
         if (output_fd == -1) {
             perror("open");
-            return;
+            return;  // Handle the error appropriately
         }
 
         struct Command command;
@@ -150,7 +150,7 @@ void output_redirection(char *cmd) {
     }
 }
 
-void execute_pipeline(struct Command commands[], char *cmd) {
+void execute_pipeline(struct Command commands[], char *cmd, int output_fd) {
     int num_commands = 1;
     char* cmd_copy = strdup(cmd);
     while (*cmd_copy != '\0') {
@@ -192,12 +192,17 @@ void execute_pipeline(struct Command commands[], char *cmd) {
                 close(pipes[i][1]);
             }
 
+            if (i == num_commands-1) { //if last one
+                dup2(output_fd, STDOUT_FILENO);
+                close(output_fd);
+            }
+
             // Close all pipes in the child
             for (int j = 0; j < num_commands - 1; j++) {
                 close(pipes[j][0]);
                 close(pipes[j][1]);
             }
-            
+   
             // Execute the command
             execvp(commands[i].program, commands[i].args);
             perror("execvp");
@@ -224,9 +229,12 @@ void execute_pipeline(struct Command commands[], char *cmd) {
     fprintf(stderr, "\n");
 }
 
-void parse_pipe(char *cmd) {
+void parse_pipe(char *cmdline) {
+    char *trunc_start;
+    char *append_start;
+    int output_fd = STDOUT_FILENO;
     int num_commands = 1;
-    char* cmd_copy = strdup(cmd);
+    char* cmd_copy = strdup(cmdline);
     while (*cmd_copy != '\0') {
         if (*cmd_copy == '|') {
             num_commands++;
@@ -234,18 +242,47 @@ void parse_pipe(char *cmd) {
         cmd_copy++;
     }
     struct Command *commands = (struct Command*)malloc(num_commands * sizeof(struct Command));
-    cmd_copy = strdup(cmd);
+    cmd_copy = strdup(cmdline);
     char *token[num_commands];
     token[0]= strtok(cmd_copy, "|");
     for(int i = 1; i<num_commands; i++) {
         token[i] = strtok(NULL, "|");
     }
+
+
+    append_start = strstr(token[num_commands-1],">>"); //if last command have >>
+    if (append_start != NULL){
+        size_t index = append_start - token[num_commands-1]; //find the index >>
+        append_start++;
+        // Skip white spaces
+        while (*append_start == ' ') {
+            append_start++;
+        }
+        output_fd = open(append_start, O_WRONLY | O_CREAT | O_APPEND, 0666);
+        token[num_commands-1][index] = '\0'; //cut what's after >> inclusive
+    }
+
+
+    trunc_start = strchr(token[num_commands-1],'>'); //if last command have >
+    if (trunc_start != NULL){
+        size_t index = trunc_start - token[num_commands-1]; //find the index >
+        trunc_start++;
+        // Skip white spaces
+        while (*trunc_start == ' ') {
+            trunc_start++;
+        }
+        output_fd = open(trunc_start, O_WRONLY | O_CREAT | O_TRUNC, 0666);
+        token[num_commands-1][index] = '\0'; //cut what's after > inclusive
+
+    }
+
+    
     
     for(int i = 0; i<num_commands; i++) {
         parse_command(token[i], &commands[i]);
 
     }
-    execute_pipeline(commands, cmd);
+    execute_pipeline(commands, cmdline, output_fd);
 }
 
 void sls() {
@@ -282,31 +319,6 @@ void sls() {
     closedir(dir);
 }
 
-int check_error(char *cmd) {
-    size_t len = strlen(cmd);
-    while (len > 0 && isspace(cmd[len - 1])) {
-        cmd[--len] = '\0';
-    }
-    while (*cmd == ' ') {
-        cmd++;
-    }
-
-    // Check if the command starts with '|' or '>'
-    if (cmd[0] == '>' || cmd[0] == '|') {
-        return 1;
-    } 
-    // Check if the command ends with '|'
-    if (len > 0 && cmd[len - 1] == '|' ) {
-        return 1;
-    }
-    // Check if the command ends with '>'
-    if (len > 0 && cmd[len - 1] == '>' ) {
-        return 2;
-    }
-
-    return 0;
-}
-
 int main(void) {
     char cmd[CMDLINE_MAX];
 
@@ -332,15 +344,6 @@ int main(void) {
         if (nl)
             *nl = '\0';
 
-        /* Checking for error */
-        if (check_error(cmd) == 1) {
-            fprintf(stderr, "Error: missing command\n");
-            continue;
-        } else if (check_error(cmd) == 2) {
-            fprintf(stderr, "Error: no output file\n");
-            continue;
-        }
-
         /* Builtin commands */
         if (!strcmp(cmd, "exit")) { //exit
             handle_exit(cmd);
@@ -355,13 +358,14 @@ int main(void) {
             handle_pwd(cmd);
         }
 
+        else if (strchr(cmd, '|')) { // pipe
+            parse_pipe(cmd);
+        }
+
         else if (strchr(cmd, '>')) {// output redirect
             output_redirection(cmd);
         }
 
-        else if (strchr(cmd, '|')) { // pipe
-            parse_pipe(cmd);
-        }
 
         else if (strcmp(cmd, "sls") == 0) { // sls
             sls();
