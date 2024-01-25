@@ -350,7 +350,14 @@ int check_error(char *cmd) {
     /* Error: mislocated output redirection */
     char *redirect_symbol = strstr(cmd, ">");
     char *pipe_symbol = strstr(cmd, "|");
-    if (redirect_symbol != NULL && pipe_symbol != NULL && redirect_symbol < pipe_symbol) {
+    char *last_pipe = NULL;
+
+    // Find the last pipe symbol before the redirect symbol
+    while (pipe_symbol != NULL) {
+        last_pipe = pipe_symbol;
+        pipe_symbol = strstr(pipe_symbol + 1, "|");
+    }
+    if (redirect_symbol != NULL && last_pipe != NULL && redirect_symbol < last_pipe) {
         return MISLOCATED_REDIRECTION;
     }
 
