@@ -198,9 +198,7 @@ void execute_pipeline(struct Command commands[], char *cmd, int output_fd) {
             if (i != num_commands - 1) {
                 dup2(pipes[i][1], STDOUT_FILENO);
                 close(pipes[i][1]);
-            }
-
-            if (i == num_commands-1) { //if last one
+            } else  {
                 dup2(output_fd, STDOUT_FILENO);
                 close(output_fd);
             }
@@ -240,7 +238,7 @@ void execute_pipeline(struct Command commands[], char *cmd, int output_fd) {
 void parse_pipe(char *cmdline) {
     char *trunc_start;
     char *append_start;
-    int output_fd = STDOUT_FILENO;
+    int output_fd;
     int num_commands = 1;
     char* cmd_copy = strdup(cmdline);
     while (*cmd_copy != '\0') {
