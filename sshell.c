@@ -1,13 +1,13 @@
+#include <ctype.h>
+#include <dirent.h>
+#include <fcntl.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#include <unistd.h>
+#include <sys/stat.h>
 #include <sys/types.h>
 #include <sys/wait.h>
-#include <fcntl.h>
-#include <dirent.h>
-#include <sys/stat.h>
-#include <stdbool.h>
+#include <unistd.h>
 
 #define CMDLINE_MAX 512
 #define ARGS_MAX 32
@@ -20,6 +20,14 @@ struct Command {
 
 struct Pipeline {
     struct Command commands[PIPES_MAX + 1];
+};
+
+// Define error codes
+enum ErrorCode {
+    MISSING_COMMAND = 1,
+    NO_OUTPUT_FILE = 2,
+    MISLOCATED_REDIRECTION = 3,
+    CANNOT_OPEN_FILE = 4
 };
 
 void parse_command(char *cmd, struct Command *command) {
@@ -249,7 +257,6 @@ void parse_pipe(char *cmdline) {
         token[i] = strtok(NULL, "|");
     }
 
-
     append_start = strstr(token[num_commands-1],">>"); //if last command have >>
     if (append_start != NULL){
         size_t index = append_start - token[num_commands-1]; //find the index >>
@@ -262,7 +269,6 @@ void parse_pipe(char *cmdline) {
         token[num_commands-1][index] = '\0'; //cut what's after >> inclusive
     }
 
-
     trunc_start = strchr(token[num_commands-1],'>'); //if last command have >
     if (trunc_start != NULL){
         size_t index = trunc_start - token[num_commands-1]; //find the index >
@@ -273,11 +279,8 @@ void parse_pipe(char *cmdline) {
         }
         output_fd = open(trunc_start, O_WRONLY | O_CREAT | O_TRUNC, 0666);
         token[num_commands-1][index] = '\0'; //cut what's after > inclusive
-
     }
 
-    
-    
     for(int i = 0; i<num_commands; i++) {
         parse_command(token[i], &commands[i]);
 
@@ -319,6 +322,69 @@ void sls() {
     closedir(dir);
 }
 
+int check_error(char *cmd) {
+    size_t len = strlen(cmd);
+    while (len > 0 && isspace(cmd[len - 1])) {
+        cmd[--len] = '\0';
+    }
+    while (*cmd == ' ') {
+        cmd++;
+    }
+
+    /* Error: missing command */
+    // Check if the command starts with '|' or '>'
+    if (cmd[0] == '>' || cmd[0] == '|') {
+        return MISSING_COMMAND;
+    } 
+    // Check if the command ends with '|'
+    if (len > 0 && cmd[len - 1] == '|' ) {
+        return MISSING_COMMAND;
+    }
+
+    /* Error: no output file */
+    // Check if the command ends with '>'
+    if (len > 0 && cmd[len - 1] == '>' ) {
+        return NO_OUTPUT_FILE;
+    }
+
+    /* Error: mislocated output redirection */
+    char *redirect_symbol = strstr(cmd, ">");
+    char *pipe_symbol = strstr(cmd, "|");
+    if (redirect_symbol != NULL && pipe_symbol != NULL && redirect_symbol < pipe_symbol) {
+        return MISLOCATED_REDIRECTION;
+    }
+
+    /* Error: cannot open output file */
+    char *output_file = strchr(cmd, '>');
+    if (strstr(cmd, ">>")) {
+        output_file++;
+        if (output_file != NULL) {
+             output_file++;
+
+            // Move past any leading spaces
+            while (*output_file == ' ') {
+                output_file++;
+            }
+            FILE *output_fp = fopen(output_file, "a");
+            if (output_fp == NULL) {
+                return CANNOT_OPEN_FILE;
+            }
+            fclose(output_fp);
+        }
+    } else if (output_file != NULL) {
+        output_file++;
+        while (*output_file == ' ') {
+            output_file++;
+        }
+        FILE *output_fp = fopen(output_file, "w");
+        if (output_fp == NULL) {
+            return CANNOT_OPEN_FILE;
+        }
+        fclose(output_fp);
+    }
+    return 0;
+}
+
 int main(void) {
     char cmd[CMDLINE_MAX];
 
@@ -344,6 +410,22 @@ int main(void) {
         if (nl)
             *nl = '\0';
 
+        /* Checking for error */
+        int error = check_error(cmd);
+        if (error == MISSING_COMMAND) {
+            fprintf(stderr, "Error: missing command\n");
+            continue;
+        } else if (error == NO_OUTPUT_FILE) {
+            fprintf(stderr, "Error: no output file\n");
+            continue;
+        } else if (error == MISLOCATED_REDIRECTION) {
+            fprintf(stderr, "Error: mislocated output redirection\n");
+            continue;
+        } else if (error == CANNOT_OPEN_FILE) {
+            fprintf(stderr, "Error: cannot open output file\n");
+            continue;
+        }
+
         /* Builtin commands */
         if (!strcmp(cmd, "exit")) { //exit
             handle_exit(cmd);
@@ -365,7 +447,6 @@ int main(void) {
         else if (strchr(cmd, '>')) {// output redirect
             output_redirection(cmd);
         }
-
 
         else if (strcmp(cmd, "sls") == 0) { // sls
             sls();
