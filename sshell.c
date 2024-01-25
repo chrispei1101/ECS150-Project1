@@ -64,11 +64,9 @@ void execute_command(struct Command command, int input_fd, int output_fd, char* 
             dup2(output_fd, STDOUT_FILENO);
             close(output_fd);
         }
-
         execvp(command.program, command.args);
-
         // If execvp fails, print an error and exit
-        perror("execvp");
+        fprintf(stderr, "Error: command not found\n");
         exit(EXIT_FAILURE);
     } else { // Parent process
         // Close both ends of the pipe in the parent process
@@ -88,9 +86,12 @@ void execute_command(struct Command command, int input_fd, int output_fd, char* 
 
 void handle_cd(char *path, char *cmd) {
     if (chdir(path) == -1) {
-        perror("chdir");
+        fprintf(stderr, "Error: cannot cd into directory\n");
+        fprintf(stderr, "+ completed '%s' [1]\n", cmd);
     }
+    else{
     fprintf(stderr, "+ completed '%s' [%d]\n", cmd, 0);
+    }
 }
 
 void handle_pwd(char *cmd) {
