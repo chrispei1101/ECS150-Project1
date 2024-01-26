@@ -33,7 +33,7 @@ enum ErrorCode {
 int parse_command(char *cmd, struct Command *command) {
     char *token;
     int arg_count = 0;
-    char *cmdline = strdup(cmd);
+    char *cmdline = strdup(cmd); // Duplicate the command
 
     // Tokenize the command line
     token = strtok(cmdline, " ");
@@ -46,13 +46,13 @@ int parse_command(char *cmd, struct Command *command) {
         if (token != NULL) {
             arg_count++;
 
+            // Check if there are too many arguments
             if (arg_count >= ARGS_MAX) {
                 fprintf(stderr, "Error: too many arguments\n");
                 free(cmdline);
                 cmd = NULL;
                 return 1;
             }
-
             command->args[arg_count] = token;
         }
     }
@@ -63,9 +63,10 @@ int parse_command(char *cmd, struct Command *command) {
 }
 
 void execute_command(struct Command command, int input_fd, int output_fd, char* cmd) {
-    pid_t pid = fork();
+    pid_t pid = fork(); // Fork new process
     int status;
 
+    // Print error message if fork fails
     if (pid == -1) {
         perror("fork");
         exit(EXIT_FAILURE);
@@ -74,15 +75,17 @@ void execute_command(struct Command command, int input_fd, int output_fd, char* 
     if (pid == 0) { // Child process
         // Close read end of the pipe if input_fd is not STDIN_FILENO
         if (input_fd != STDIN_FILENO) {
-            dup2(input_fd, STDIN_FILENO);
+            dup2(input_fd, STDIN_FILENO); // Redirect input
             close(input_fd);
         }
 
         // Close write end of the pipe if output_fd is not STDOUT_FILENO
         if (output_fd != STDOUT_FILENO) {
-            dup2(output_fd, STDOUT_FILENO);
+            dup2(output_fd, STDOUT_FILENO); // Redirect output
             close(output_fd);
         }
+
+        // Execute the command in the child process
         execvp(command.program, command.args);
         // If execvp fails, print an error and exit
         fprintf(stderr, "Error: command not found\n");
@@ -98,23 +101,24 @@ void execute_command(struct Command command, int input_fd, int output_fd, char* 
 
         // Wait for the child process to complete
         waitpid(pid, &status, 0);
-        /* Print completion message to stderr */
         fprintf(stderr, "+ completed '%s' [%d]\n", cmd, WEXITSTATUS(status));
     }
 }
 
 void handle_cd(char *path, char *cmd) {
+    // Change directory to the specified path
     if (chdir(path) == -1) {
+        // Print error message
         fprintf(stderr, "Error: cannot cd into directory\n");
         fprintf(stderr, "+ completed '%s' [1]\n", cmd);
-    }
-    else{
-    fprintf(stderr, "+ completed '%s' [%d]\n", cmd, 0);
+    } else {
+        fprintf(stderr, "+ completed '%s' [%d]\n", cmd, 0);
     }
 }
 
 void handle_pwd(char *cmd) {
     char cwd[128];
+    // Get the current working directory
     if (getcwd(cwd, sizeof(cwd)) != NULL) {
         fprintf(stdout, "%s\n", cwd);
     } else {
@@ -124,14 +128,15 @@ void handle_pwd(char *cmd) {
 }
 
 void handle_exit(char *cmd) {
+    // Print exit message
     fprintf(stderr, "Bye...\n");
     fprintf(stderr, "+ completed '%s' [%d]\n", cmd, 0);
     exit(EXIT_SUCCESS);
 }
 
 void output_redirection(char *cmd) {
-    char *command_line = strdup(cmd);
-    command_line = strtok(command_line, ">");
+    char *command_line = strdup(cmd); // Duplicate the command line
+    command_line = strtok(command_line, ">"); // Separate command and output file
     char *output_file = strtok(NULL, ">");
     int is_append = 0;  // Flag to check if it's append redirection
 
@@ -140,6 +145,7 @@ void output_redirection(char *cmd) {
         is_append = 1;
     }
 
+    // Trim whitespaces from output file
     while (*output_file == ' ') {
         output_file++;
     }
@@ -154,6 +160,7 @@ void output_redirection(char *cmd) {
             output_fd = open(output_file, O_WRONLY | O_CREAT | O_TRUNC, 0666);
         }
 
+        // Check error
         if (output_fd == -1) {
             perror("open");
             return;  // Handle the error appropriately
@@ -162,8 +169,6 @@ void output_redirection(char *cmd) {
         parse_command(command_line, &command);
         execute_command(command, STDIN_FILENO, output_fd, cmd);
         close(output_fd);
-    } else {
-        fprintf(stderr, "Invalid syntax for output redirection\n");
     }
 }
 
@@ -172,7 +177,7 @@ void execute_pipeline(struct Command commands[], char *cmd, int output_fd) {
     char* cmd_copy = strdup(cmd);
     while (*cmd_copy != '\0') {
         if (*cmd_copy == '|') {
-            num_commands++;
+            num_commands++; // Count the number of commands in pipeline
         }
         cmd_copy++;
     }
@@ -198,10 +203,10 @@ void execute_pipeline(struct Command commands[], char *cmd, int output_fd) {
 
         if (pids[i] == 0) { // Child process
             // Connect input to the previous pipe (if not the first command)
-           if (i > 0) {
+            if (i > 0) {
                 dup2(pipes[i-1][0], STDIN_FILENO);
                 close(pipes[i-1][0]);
-           }
+            }
 
             // Connect output to the current pipe (if not the last command)
             if (i != num_commands - 1) {
@@ -210,8 +215,8 @@ void execute_pipeline(struct Command commands[], char *cmd, int output_fd) {
             } 
             else {
                 if (output_fd != 1) {
-                dup2(output_fd, STDOUT_FILENO);
-                close(output_fd);
+                    dup2(output_fd, STDOUT_FILENO);
+                    close(output_fd);
                 }
             }
             // Close all pipes in the child
@@ -252,6 +257,8 @@ void parse_pipe(char *cmdline) {
     int output_fd = STDOUT_FILENO;
     int num_commands = 1;
     int parse_fail;
+
+    // Count the number of commands in pipeline
     char* cmd_copy = strdup(cmdline);
     while (*cmd_copy != '\0') {
         if (*cmd_copy == '|') {
@@ -259,38 +266,43 @@ void parse_pipe(char *cmdline) {
         }
         cmd_copy++;
     }
+
+    // Allocate memory for storing commands
     struct Command *commands = (struct Command*)malloc(num_commands * sizeof(struct Command));
     cmd_copy = strdup(cmdline);
     char *token[num_commands];
-    token[0]= strtok(cmd_copy, "|");
+    token[0]= strtok(cmd_copy, "|"); // Tokenize command line by pipe
     for(int i = 1; i<num_commands; i++) {
         token[i] = strtok(NULL, "|");
     }
 
-    append_start = strstr(token[num_commands-1],">>"); //if last command have >>
-    trunc_start = strchr(token[num_commands-1],'>'); //if last command have >
-    if (append_start != NULL){
-        size_t index = append_start - token[num_commands-1]; //find the index >>
+    append_start = strstr(token[num_commands-1],">>"); // if last command have ">>"
+    trunc_start = strchr(token[num_commands-1],'>'); // if last command have ">"
+    if (append_start != NULL) {
+        size_t index = append_start - token[num_commands-1]; // find the index ">>"
         append_start++;
         append_start++;
-        // Skip white spaces
+        // Trim white spaces
         while (*append_start == ' ') {
             append_start++;
         }
+        // Open file for append redirection
         output_fd = open(append_start, O_WRONLY | O_CREAT | O_APPEND, 0666);
-        token[num_commands-1][index] = '\0'; //cut what's after >> inclusive
+        token[num_commands-1][index] = '\0'; // cut what's after ">>" inclusive
     }
-    else if (trunc_start != NULL){
-        size_t index = trunc_start - token[num_commands-1]; //find the index >
+    else if (trunc_start != NULL) {
+        size_t index = trunc_start - token[num_commands-1]; // find the index ">"
         trunc_start++;
-        // Skip white spaces
+        // Trim white spaces
         while (*trunc_start == ' ') {
             trunc_start++;
         }
+        // Open file for truncate redirection
         output_fd = open(trunc_start, O_WRONLY | O_CREAT | O_TRUNC, 0666);
-        token[num_commands-1][index] = '\0'; //cut what's after > inclusive
+        token[num_commands-1][index] = '\0'; // cut what's after ">" inclusive
     }
 
+    // Parse and execute each command in the pipeline
     for(int i = 0; i<num_commands; i++) {
         parse_fail = parse_command(token[i], &commands[i]);
         if (parse_fail) {
@@ -329,16 +341,16 @@ void sls() {
         printf("%s (%ld bytes)\n", entry->d_name, (long)file_stat.st_size);
     }
     fprintf(stderr, "+ completed 'sls' [%d]\n", 0);
-
-    // Close directory
     closedir(dir);
 }
 
 int check_error(char *cmd) {
     size_t len = strlen(cmd);
+    // Trim whitespaces from the end
     while (len > 0 && isspace((unsigned char)cmd[len - 1])) {
         cmd[--len] = '\0';
     }
+    // Trim whitespaces from the beginning
     while (*cmd == ' ') {
         cmd++;
     }
@@ -475,7 +487,7 @@ int main(void) {
             /* Parse the command line */
             int parsing_status = parse_command(cmd, &command);
             /* Execute the command */
-            if (!parsing_status){
+            if (!parsing_status) {
             execute_command(command, STDIN_FILENO, STDOUT_FILENO, cmd);
             }
         }
