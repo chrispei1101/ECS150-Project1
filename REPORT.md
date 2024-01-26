@@ -1,4 +1,7 @@
 # SSHELL : Simple Shell
 ## Summary
-This program, 'sshell' provides a basic yet functional command-line interface with features commonly found in UNIX shells.
+This program, `sshell`, aims to construct a basic shell that is capable of executing diverse commands including built-in commands, output redirection, piping, extra features like `sls` and error management.
+
 ## Implementation
+
+
