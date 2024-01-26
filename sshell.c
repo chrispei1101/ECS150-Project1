@@ -10,12 +10,12 @@
 #include <unistd.h>
 
 #define CMDLINE_MAX 512
-#define ARGS_MAX 32
+#define ARGS_MAX 16
 #define PIPES_MAX 3
 
 struct Command {
     char *program;
-    char *args[ARGS_MAX];
+    char *args[ARGS_MAX+1];
 };
 
 struct Pipeline {
@@ -30,7 +30,7 @@ enum ErrorCode {
     CANNOT_OPEN_FILE = 4
 };
 
-void parse_command(char *cmd, struct Command *command) {
+int parse_command(char *cmd, struct Command *command) {
     char *token;
     int arg_count = 0;
     char *cmdline = strdup(cmd);
@@ -41,15 +41,27 @@ void parse_command(char *cmd, struct Command *command) {
     command->args[0] = token;
 
     // Parse arguments
-    while (token != NULL && arg_count < ARGS_MAX - 1) {
+    while (token != NULL) {
         token = strtok(NULL, " ");
-        arg_count++;
-        command->args[arg_count] = token;
+        if (token != NULL) {
+            arg_count++;
+
+            if (arg_count >= ARGS_MAX) {
+                fprintf(stderr, "Error: too many arguments\n");
+                free(cmdline);
+                cmd = NULL;
+                return 1;
+            }
+
+            command->args[arg_count] = token;
+        }
     }
+
 
     // Null-terminate the arguments array
     arg_count++;
     command->args[arg_count] = NULL;
+    return 0;
 }
 
 void execute_command(struct Command command, int input_fd, int output_fd, char* cmd) {
@@ -322,7 +334,7 @@ void sls() {
 
 int check_error(char *cmd) {
     size_t len = strlen(cmd);
-    while (len > 0 && isspace(cmd[len - 1])) {
+    while (len > 0 && isspace((unsigned char)cmd[len - 1])) {
         cmd[--len] = '\0';
     }
     while (*cmd == ' ') {
@@ -459,9 +471,12 @@ int main(void) {
 
         else {
             /* Parse the command line */
-            parse_command(cmd, &command);
+            int parsing_status = parse_command(cmd, &command);
             /* Execute the command */
+            if (!parsing_status){
             execute_command(command, STDIN_FILENO, STDOUT_FILENO, cmd);
+            }
+            
         }
     }
     return EXIT_SUCCESS;
