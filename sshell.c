@@ -251,6 +251,7 @@ void parse_pipe(char *cmdline) {
     int output_fd;
     int num_commands = 1;
     char* cmd_copy = strdup(cmdline);
+    int parse_fail;
     while (*cmd_copy != '\0') {
         if (*cmd_copy == '|') {
             num_commands++;
@@ -290,8 +291,10 @@ void parse_pipe(char *cmdline) {
     }
 
     for(int i = 0; i<num_commands; i++) {
-        parse_command(token[i], &commands[i]);
-
+        parse_fail = parse_command(token[i], &commands[i]);
+        if (parse_fail) {
+            return;
+        }
     }
     execute_pipeline(commands, cmdline, output_fd);
 }
