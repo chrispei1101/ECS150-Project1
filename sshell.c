@@ -56,8 +56,6 @@ int parse_command(char *cmd, struct Command *command) {
             command->args[arg_count] = token;
         }
     }
-
-
     // Null-terminate the arguments array
     arg_count++;
     command->args[arg_count] = NULL;
@@ -476,7 +474,6 @@ int main(void) {
             if (!parsing_status){
             execute_command(command, STDIN_FILENO, STDOUT_FILENO, cmd);
             }
-            
         }
     }
     return EXIT_SUCCESS;
