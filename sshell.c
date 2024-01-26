@@ -266,8 +266,10 @@ void parse_pipe(char *cmdline) {
     }
 
     append_start = strstr(token[num_commands-1],">>"); //if last command have >>
+    trunc_start = strchr(token[num_commands-1],'>'); //if last command have >
     if (append_start != NULL){
         size_t index = append_start - token[num_commands-1]; //find the index >>
+        append_start++;
         append_start++;
         // Skip white spaces
         while (*append_start == ' ') {
@@ -276,9 +278,7 @@ void parse_pipe(char *cmdline) {
         output_fd = open(append_start, O_WRONLY | O_CREAT | O_APPEND, 0666);
         token[num_commands-1][index] = '\0'; //cut what's after >> inclusive
     }
-
-    trunc_start = strchr(token[num_commands-1],'>'); //if last command have >
-    if (trunc_start != NULL){
+    else if (trunc_start != NULL){
         size_t index = trunc_start - token[num_commands-1]; //find the index >
         trunc_start++;
         // Skip white spaces
