@@ -158,7 +158,6 @@ void output_redirection(char *cmd) {
             perror("open");
             return;  // Handle the error appropriately
         }
-
         struct Command command;
         parse_command(command_line, &command);
         execute_command(command, STDIN_FILENO, output_fd, cmd);
@@ -208,11 +207,13 @@ void execute_pipeline(struct Command commands[], char *cmd, int output_fd) {
             if (i != num_commands - 1) {
                 dup2(pipes[i][1], STDOUT_FILENO);
                 close(pipes[i][1]);
-            } else  {
+            } 
+            else {
+                if (output_fd != 1) {
                 dup2(output_fd, STDOUT_FILENO);
                 close(output_fd);
+                }
             }
-
             // Close all pipes in the child
             for (int j = 0; j < num_commands - 1; j++) {
                 close(pipes[j][0]);
@@ -248,8 +249,9 @@ void execute_pipeline(struct Command commands[], char *cmd, int output_fd) {
 void parse_pipe(char *cmdline) {
     char *trunc_start;
     char *append_start;
-    int output_fd;
+    int output_fd = STDOUT_FILENO;
     int num_commands = 1;
+    int parse_fail;
     char* cmd_copy = strdup(cmdline);
     while (*cmd_copy != '\0') {
         if (*cmd_copy == '|') {
@@ -290,8 +292,10 @@ void parse_pipe(char *cmdline) {
     }
 
     for(int i = 0; i<num_commands; i++) {
-        parse_command(token[i], &commands[i]);
-
+        parse_fail = parse_command(token[i], &commands[i]);
+        if (parse_fail) {
+            return;
+        }
     }
     execute_pipeline(commands, cmdline, output_fd);
 }
