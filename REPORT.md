@@ -43,10 +43,9 @@ their completion. File descriptors are duplicated using dup2 to set up the
 communication between commands.
 
 ### 5. Error Handling
-Error handling involves checking for various conditions such as missing
-commands, mislocated output redirection, or inability to open output files. The
-check_error function is responsible for identifying and reporting errors.
-Relevant error messages are printed to stderr. Error code is defined using enum.
+Error handling, `check_error`, involves checking errors for various conditions such as missing
+commands, mislocated output redirection, or inability to open output files. Firstly, it checks if the command starts or ends with a pipe symbol `|` or output redirection symbol `>`. If either condition is met, it returns an appropriate error code, indicating a missing command or output file.
+Next, if a command contains both pipe and output redirection symbols, the function ensures that the output redirection symbol appears first before the last pipe symbol. If it doesn't, it indicates a mislocated redirection error. It also detects if it's unable to open the specified output file. If the command includes an append redirection `>>`, it attempts to open the file in append mode ('a'). If the command includes a regular output redirection `>`, it attempts to open the file in write mode ('w'). If the file cannot be opened for writing or appending, it returns an error indicating the inability to open the file. Relevant error messages are printed to stderr. Error code is defined using enum.
 
 ### Note
 The shell supports a maximum command line length of 512 characters
