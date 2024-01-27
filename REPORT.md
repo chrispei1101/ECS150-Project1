@@ -12,11 +12,10 @@ The implementation of this program having these features:
    commands, mislocated output redirection, and unable to open
 
 ### 1. Command Execution
-The command execution is implemented using the fork function. When a command is
-entered, the shell creates a child process using fork(). The child process then
-executed with command struct using execvp. Meanwhile, the parent process waits
-for the child to complete using waitpid. Once the child finish, the parent will
-print exit code of the child.
+The command execution, `execute_command` function, is implemented using the fork function. When a command is
+entered, the shell creates a new process using the `fork()`, effectively creating a parent process and a child process. If the fork operation fails, the function prints an error message using `perror()` and exits the program with a failure status. In the child process `(pid == 0)`, it checks if the input and output file descriptors are different from the standard input and output file descriptors. If so, it redirects the standard input or output accordingly using  `dup2()` and closes the corresponding file descriptors. Then, it attempts to execute the command specified in the `command` structure using the `execvp()`. Meanwhile, the parent process waits
+for the child to complete using `waitpid()`. Once the child finish, the parent will
+print the exit code of the child.
 
 ### 2. Built-in Commands
 Built-in commands, such as cd, pwd, exit, and sls, are identified within the
