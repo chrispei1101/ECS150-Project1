@@ -50,8 +50,8 @@ Relevant error messages are printed to stderr. Error code is defined using enum.
 
 ### Note
 The shell supports a maximum command line length of 512 characters
-(CMDLINE_MAX). Maximum arguments per command are set to 16 (ARGS_MAX). Maximum
-number of pipes in a pipeline is set to 3 (PIPES_MAX). The parse_command
+**(CMDLINE_MAX)**. Maximum arguments per command are set to 16 **(ARGS_MAX)**. Maximum
+number of pipes in a pipeline is set to 3 **(PIPES_MAX)**. The `parse_command`
 function is responsible for breaking down the command line into individual
 tokens, extracting the program name and its arguments. The function utilizes the
 strtok function to tokenize the input string based on space characters. There is
