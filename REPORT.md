@@ -28,6 +28,8 @@ The `handle_pwd` function utilizes the `getcwd()` to obtain the current director
 
 The `handle_cd` function changes the current directory to the one specified path using the `chdir()`. If the operation fails, it prints an error message to `stderr`. It also prints a completion message indicating the execution status.
 
+The `sls` function is designed to list the contents of the current directory. It opens the current directory using `opendir(".")`. If the directory fails to open, it prints an error message using `perror()`. Otherwise, it proceeds to read the directory entries using `readdir()` in a loop. For each directory entry, it retrieves file information using `stat()` excluding the entry name starting with a dot. If `stat()` fails to retrieve file information, it prints an error message and closes the directory stream. For each valid entry, the function prints the entry's name and size. It also prints a completion message to `stderr` indicating the successful execution and closes the directory stream using `closedir()`.
+
 ### 3. Output Redirection
 Output redirection is implemented by identifying the presence of > or >> in the
 command line. The output file is then extracted, and the open system call is
