@@ -53,7 +53,7 @@ The shell supports a maximum command line length of 512 characters
 number of pipes in a pipeline is set to 3 **(PIPES_MAX)**. The `parse_command`
 function is responsible for breaking down the command line into individual
 tokens, extracting the program name and its arguments. The function utilizes the
-strtok function to tokenize the input string based on space characters. There is
+`strtok()` to tokenize the input string based on space characters. There is
 also counters to check if there are too many arguments.
 
 
