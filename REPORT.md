@@ -42,6 +42,9 @@ will be in stdout. The parent process manages these processes and waits for
 their completion. File descriptors are duplicated using dup2 to set up the
 communication between commands.
 
+The `parse_pipe` function is designed to handle command pipelines where commands are connected by pipe symbols `|`. It begins by counting the number of commands in the pipeline by iterating through the command line. It then allocates memory for storing command structures based on the number of commands detected. It then tokenizes the command line by pipe symbols using `strtok()` and stores each command in an array. If the last command in the pipeline contains output redirection symbols `>>` for append and `>` for truncation, it opens the specified output file accordingly using the `open()`. Each command in the pipeline get parased and executed using the `parse_command()` function. It then executes the entire pipeline using the `execute_pipeline()` function, passing in the array of command structures and the output file descriptor.
+
+
 ### 5. Error Handling
 Error handling, `check_error`, involves checking errors for various conditions such as missing
 commands, mislocated output redirection, or inability to open output files. Firstly, it checks if the command starts or ends with a pipe symbol `|` or output redirection symbol `>`. If either condition is met, it returns an appropriate error code, indicating a missing command or output file.
