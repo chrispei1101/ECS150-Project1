@@ -31,11 +31,8 @@ The `handle_cd` function changes the current directory to the one specified path
 The `sls` function is designed to list the contents of the current directory. It opens the current directory using `opendir(".")`. If the directory fails to open, it prints an error message using `perror()`. Otherwise, it proceeds to read the directory entries using `readdir()` in a loop. For each directory entry, it retrieves file information using `stat()` excluding the entry name starting with a dot. If `stat()` fails to retrieve file information, it prints an error message and closes the directory stream. For each valid entry, the function prints the entry's name and size. It also prints a completion message to `stderr` indicating the successful execution and closes the directory stream using `closedir()`.
 
 ### 3. Output Redirection
-Output redirection is implemented by identifying the presence of > or >> in the
-command line. The output file is then extracted, and the open system call is
-used to open the file with the appropriate flags (O_WRONLY, O_CREAT, O_APPEND or
-O_TRUNC). The file descriptor is then duplicated to STDOUT_FILENO, and the
-command is executed.
+Output redirection, `output_redirection` function, is implemented by identifying the presence of `>` or `>>` in the
+command line. The command line is being duplicated using `strdup()` and then tokenized using `strtok()` to separate the command and the output file name based on the `>` delimiter. The function also detects if the `>>` sequence is present in the command line, indicating append redirection. After extracting the output file name, the function trims leading whitespaces from the file name. If the output file and command are valid, the function attempts to open the output file using the `open()`. Depending on whether it's append redirection or regular output redirection, appropriate flags are passed to `open()` to handle file creation. If opening the output file fails, an error message is printed using `perror()`. If successful, the function proceeds to parse the command line using the `parse_command()` function and executes the command using the `execute_command()` function.
 
 ### 4. Piping
 Piping is implemented by creating multiple child processes, each connected to a
