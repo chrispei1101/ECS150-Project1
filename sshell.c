@@ -163,7 +163,7 @@ void output_redirection(char *cmd) {
         // Check error
         if (output_fd == -1) {
             perror("open");
-            return;  // Handle the error appropriately
+            return;
         }
         struct Command command;
         parse_command(command_line, &command);
