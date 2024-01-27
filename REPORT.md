@@ -22,6 +22,12 @@ Built-in commands, such as cd, pwd, exit, and sls, are identified within the
 main loop. If the entered command matches one of the built-ins, the
 corresponding function is called.
 
+The `handle_exit` function terminates the shell program. It prints a farewell message and completion message to stderr to indicate the successful execution of the exit command and then exits the program with a successful termination status using `exit(EXIT_SUCCESS)`.
+
+The `handle_pwd` function utilizes the `getcwd()` to obtain the current directory and stores it in the `cwd` buffer. If successful, it prints the current directory to `stdout`. If not, it prints an error message using `perror()`. It also prints a completion message indicating the execution status.
+
+The `handle_cd` function changes the current directory to the one specified path using the `chdir()`. If the operation fails, it prints an error message to `stderr`. It also prints a completion message indicating the execution status.
+
 ### 3. Output Redirection
 Output redirection is implemented by identifying the presence of > or >> in the
 command line. The output file is then extracted, and the open system call is
