@@ -1,17 +1,14 @@
 # SSHELL : Simple Shell
 ## Summary
-This program, 'sshell' provides a basic yet functional command-line interface
-with features commonly found in UNIX shells. It supports basic shell
-functionalities, including executing external commands, output redirection,
-piping, and built-in commands like cd, pwd, sls and exit.
+This program, `sshell`, aims to construct a basic shell that is capable of executing diverse commands including built-in commands, output redirection, piping, extra features like `sls` and error management. The program adopts a modular approach, dividing the core functionality into separate functions such as parsing, command execution, error checking, output redirection and handling built-in commands like `cd`, `pwd` and `exit`.
 
 ## Implementation
 The implementation of this program having these features:
-1. Command Execution: Executes external commands entered by the user
-2. Built-in Commands: Supports built-in commands such as cd, pwd, exit, and sls
-3. Output Redirection: Redirects command output to a file using > or >>
-4. Piping: Allows chaining multiple commands using |
-5. Error Handling: Provides error messages for common issues like missing
+1. **Command Execution**: Executes external commands entered by the user
+2. **Built-in Commands**: Supports built-in commands such as cd, pwd, exit, and sls
+3. **Output Redirection**: Redirects command output to a file using `>` or `>>`
+4. **Piping**: Allows chaining multiple commands using `|`
+5. **Error Handling**: Provides error messages for common issues like missing
    commands, mislocated output redirection, and unable to open
 
 ### 1. Command Execution
@@ -55,3 +52,5 @@ function is responsible for breaking down the command line into individual
 tokens, extracting the program name and its arguments. The function utilizes the
 strtok function to tokenize the input string based on space characters. There is
 also counters to check if there are too many arguments.
+
+
